@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Presensi SMKN 1 Mejayan</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  font-family:Arial,sans-serif;
+  margin:0;
+  background:#f0f4f8;
+}
+
+/* HEADER */
+header{
+  background:#185a9d;
+  color:white;
+  padding:14px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+
+/* CENTER CONTENT */
+.center{
+  min-height:calc(100vh - 60px);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:16px;
+}
+
+/* CARD */
+.card{
+  background:white;
+  padding:20px;
+  border-radius:18px;
+  width:100%;
+  max-width:420px;
+  box-shadow:0 8px 20px rgba(0,0,0,.15);
+}
+
+/* FORM */
+input,.btn{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  font-size:15px;
+}
+
+.btn{border:none;color:white}
+.masuk{background:#2ecc71}
+.pulang{background:#e74c3c}
+.riwayat{background:#3498db}
+
+.hidden{display:none}
+
+/* MAP */
+#map{
+  height:260px;
+  border-radius:12px;
+  background:#ddd;
+  margin-top:12px;
+  overflow:hidden;
+}
+#map iframe{
+  width:100%;
+  height:100%;
+  border:0;
+}
+
+.item{
+  background:#ecf0f1;
+  padding:12px;
+  border-radius:10px;
+  margin-top:8px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage" class="center">
+  <div class="card">
+    <h2>Presensi Online</h2>
+    <p>✨ Selamat datang ✨</p>
+    <input id="nama" placeholder="Nama">
+    <input id="idUser" placeholder="No / ID">
+    <button class="btn masuk" onclick="loginUser()">Login</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboardPage" class="hidden">
+<header>
+  <button onclick="logout()">⬅ Logout</button>
+  <b>Dashboard</b>
+  <button onclick="showProfil()">👤</button>
+</header>
+
+<div class="center">
+  <div class="card">
+    <h3 id="namaUser"></h3>
+    <p id="tanggalHari"></p>
+    <p id="waktuSekarang"></p>
+
+    <p>📍 SMKN 1 Mejayan</p>
+    <p id="jarak">Menunggu lokasi...</p>
+
+    <div id="map">Menunggu GPS...</div>
+
+    <button class="btn masuk" onclick="absenMasuk()">Absen Masuk</button>
+    <button class="btn pulang" onclick="absenPulang()">Absen Pulang</button>
+    <button class="btn riwayat" onclick="showRiwayat()">📘 Riwayat</button>
+  </div>
+</div>
+</div>
+
+<!-- RIWAYAT -->
+<div id="riwayatPage" class="hidden">
+<header>
+  <button onclick="showDashboard()">⬅</button>
+  <b>Riwayat</b>
+  <button onclick="showProfil()">👤</button>
+</header>
+
+<div class="center">
+  <div class="card">
+    <div id="listRiwayat"></div>
+    <button class="btn masuk" onclick="showDashboard()">Kembali</button>
+  </div>
+</div>
+</div>
+
+<script>
+/* LOKASI SEKOLAH (FIX) */
+const sekolahLat = -7.556977;
+const sekolahLon = 111.659807;
+
+let jarakUser = 9999;
+
+/* LOGIN */
+function loginUser(){
+  localStorage.setItem("nama", nama.value);
+  localStorage.setItem("id", idUser.value);
+  loginPage.style.display="none";
+  dashboardPage.style.display="block";
+  initGPS();
+}
+
+/* GPS */
+function initGPS(){
+  namaUser.innerText="Halo, "+localStorage.getItem("nama");
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(pos=>{
+      updateLocation(pos.coords.latitude,pos.coords.longitude);
+    },err=>{
+      jarak.innerText="❌ GPS tidak aktif";
+    },{enableHighAccuracy:true});
+  }
+}
+
+/* UPDATE LOKASI */
+function updateLocation(lat,lon){
+  jarakUser = hitungJarak(lat,lon,sekolahLat,sekolahLon);
+  jarak.innerText = "Jarak kamu: "+Math.round(jarakUser)+" meter";
+  map.innerHTML=`<iframe src="https://maps.google.com/maps?q=${lat},${lon}&z=17&output=embed"></iframe>`;
+}
+
+/* HITUNG JARAK */
+function hitungJarak(a,b,c,d){
+  const R=6371e3;
+  const dLat=(c-a)*Math.PI/180;
+  const dLon=(d-b)*Math.PI/180;
+  const x=Math.sin(dLat/2)**2+
+    Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*
+    Math.sin(dLon/2)**2;
+  return R*(2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)));
+}
+
+/* JAM */
+function updateWaktu(){
+  const n=new Date();
+  tanggalHari.innerText="📅 "+n.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  waktuSekarang.innerText="⏰ "+n.toLocaleTimeString("id-ID");
+}
+setInterval(updateWaktu,1000);
+updateWaktu();
+
+/* ABSEN */
+function simpanRiwayat(j){
+  let d=JSON.parse(localStorage.getItem("riwayat"))||[];
+  const n=new Date();
+  d.push({tanggal:n.toLocaleDateString("id-ID"),waktu:n.toLocaleTimeString("id-ID"),jenis:j});
+  localStorage.setItem("riwayat",JSON.stringify(d));
+}
+
+function absenMasuk(){
+  jarakUser<=1000 ? (simpanRiwayat("Masuk"),alert("✅ Absen masuk berhasil")) : alert("❌ Di luar radius 1000 meter");
+}
+function absenPulang(){
+  jarakUser<=1000 ? (simpanRiwayat("Pulang"),alert("🎉 Absen pulang berhasil")) : alert("❌ Di luar radius 1000 meter");
+}
+
+/* RIWAYAT */
+function showRiwayat(){
+  dashboardPage.style.display="none";
+  riwayatPage.style.display="block";
+  listRiwayat.innerHTML="";
+  (JSON.parse(localStorage.getItem("riwayat"))||[]).forEach(x=>{
+    listRiwayat.innerHTML+=`<div class="item"><b>${x.tanggal}</b><br>${x.jenis} : ${x.waktu}</div>`;
+  });
+}
+
+function showDashboard(){
+  riwayatPage.style.display="none";
+  dashboardPage.style.display="block";
+}
+
+function showProfil(){
+  alert("Nama: "+localStorage.getItem("nama")+"\nID: "+localStorage.getItem("id"));
+}
+function logout(){location.reload();}
+</script>
+
+</body>
+</html>
